@@ -1,3 +1,10 @@
 Web Scraping personal project on the following topic :
 
 Monitoring flight fares on Skyscanner website
+
+
+
+
+mkdir Workbooks
+pip3 install -r requirements.txt
+python3 skyscanner_scrap.py
