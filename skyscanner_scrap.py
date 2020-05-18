@@ -13,15 +13,17 @@ import multiprocessing as mp
 # =============================================================================
 
 # multiprocessing library
-N_processes = 3
+N_processes = 4
 
-# Number of web browsers opened at same time (depends empirically of internet speed)
+# Number of web browsers opened at same time (can depend empirically of internet speed)
 N_browsers = 3
 
 
 # In how many days and for which range to look up flight fares
 # Default : starting next month and for 3 months
-Start, Iterations = 30, 7
+Start, Iterations = 50, 10
+
+pages_lookup_before_saving = 12
 
 
 # URL body for this situation : 1 adult, French website, EUR currency
@@ -30,7 +32,12 @@ url_body_2 = "/?adults=1&children=0&adultsv2=1&childrenv2=&infants=0" + \
     "&cabinclass=economy&rtn=0&preferdirects=false&outboundaltsenabled=" + \
     "false&inboundaltsenabled=false&ref=home"
 
-
+columns_OneWay = ['From','To','Date','Departure time','Duration',
+				  'Company','Direct flight','Price','Currency']
+columns_Return = ['From','To','Date - OneWay','Departure time - OneWay',
+            'Duration - OneWay','Direct flight - OneWay','Company - OneWay',
+            'Date - Return','Departure time - Return','Duration - Return',
+            'Direct flight - Return','Company - Return','Price','Currency']
 
 
 # =============================================================================
@@ -45,8 +52,8 @@ def create_trips(From, To, Return, Start, Iterations):
     # First step : get the cities nomenclature in URL
     Dict_cities = {}
     browser = webdriver.Firefox(executable_path = "./geckodriver",
-                            firefox_profile=webdriver.FirefoxProfile()\
-                            .set_preference("browser.privatebrowsing.autostart", True))
+                    firefox_profile=webdriver.FirefoxProfile()\
+                    .set_preference("browser.privatebrowsing.autostart", True))
     browser.get("https://www.skyscanner.fr/")
     try: # cookie banner
         browser.find_element_by_xpath('//button[contains(text(), "OK")]').click()
@@ -124,8 +131,8 @@ def bot_detection(browser):
     try: # êtes-vous un robot?
         detect = browser.find_element_by_xpath('//button[contains(text(), "Êtes-vous une personne ou un robot ?")]')
         browser.close()
-        DF.to_excel("Skyscanner_PARIS.xlsx", index=False)
-        print('Bot detect !'), print(A)
+        DF.to_excel(filename, index=False)
+        print('Bot detect !')
     except:
         pass
 
@@ -134,13 +141,9 @@ def bot_detection(browser):
 
 def init_workbook(filename, Return):
     if Return==0:
-        DF = pd.DataFrame(columns=['From','To','Date','Departure time',
-                    'Duration','Company','Direct flight','Price','Currency'])
+        DF = pd.DataFrame(columns=columns_OneWay)
     else:
-        DF = pd.DataFrame(columns=['From','To','Date - OneWay','Departure time - OneWay',
-            'Duration - OneWay','Direct flight - OneWay','Company - OneWay',
-            'Date - Return','Departure time - Return','Duration - Return',
-            'Direct flight - Return','Company - Return','Price','Currency'])
+        DF = pd.DataFrame(columns=columns_Return)
     DF.to_excel(filename, index=False) # Initiate Workbook
     return 1
 
@@ -192,6 +195,8 @@ def page_results_OneWay(browser, trip, DF, banners):
     for j in range(len(boxes)):
         # NOTE TO MYSELF : " .// " in the xpath, otherwise whole page is read !
         price_currency = boxes[j].find_element_by_xpath('.//div[starts-with(@class, "Price_mainPriceContainer_")]').text
+        price_currency.strip()
+        assert len(price_currency.split(' ')) == 2 
         direct_or_stops = boxes[j].find_element_by_xpath('.//div[contains(@class, "LegInfo_stopsLabelContainer_")]').text
         try:
             comp = boxes[j].find_element_by_xpath('.//div[contains(@class, "LegLogo_legImage_")]') \
@@ -204,8 +209,8 @@ def page_results_OneWay(browser, trip, DF, banners):
               boxes[j].find_element_by_xpath('.//span[contains(@class, "Duration_duration_")]').text, # Flight Length
               direct_or_stops.split("\n")[0], # Direct ?
               comp, # Airtravel Company
-              int(price_currency[:-2]), # Price
-              price_currency[-2:] # Currency
+              int(price_currency.split(' ')[0]), # Price
+              price_currency.split(' ')[1] # Currency
               ]
     del boxes
     return(DF)
@@ -216,18 +221,17 @@ def main_OneWay(Trips):
     appends results to output DataFrame
     """
     global filename
-    DF = pd.DataFrame(columns=['From','To','Date','Departure time','Duration',
-                               'Direct flight','Company','Price','Currency'])
+    DF = pd.DataFrame(columns=columns_OneWay)
     banners = {'cookie':False, 'covid':False, 'price_alert':False}
     b = webdriver.Firefox(executable_path = "./geckodriver",
                           firefox_profile=webdriver.FirefoxProfile() \
                           .set_preference("browser.privatebrowsing.autostart", True))
     for j in range(len(Trips)):
         DF = page_results_OneWay(b, Trips[j], DF, banners)
-        if (j+1) % 12 == 0:
+        if (j+1) % pages_lookup_before_saving == 0:
             save_DF_to_workbook(filename, DF)
-            DF = pd.DataFrame(columns=['From','To','Date','Departure time',
-                    'Duration','Direct flight','Price','Currency','Company'])
+            print("Intermediate save of data to workbook")
+            DF = pd.DataFrame(columns=columns_OneWay)
     b.close()
     save_DF_to_workbook(filename, DF)
     return(DF)
@@ -272,7 +276,9 @@ def page_results_Return(browser, trip, DF, banners):
     boxes = browser.find_elements_by_xpath('//div[starts-with(@class, "EcoTicketWrapper_itineraryContainer_")]')
     for j in range(len(boxes)):
         # NOTE TO MYSELF : " .// " in the xpath, otherwise whole page is read 
-        price_currency = boxes[j].find_element_by_xpath('.//div[starts-with(@class, "Price_mainPriceContainer_")]').text   
+        price_currency = boxes[j].find_element_by_xpath('.//div[starts-with(@class, "Price_mainPriceContainer_")]').text
+        price_currency.strip()
+        assert len(price_currency.split(' ')) == 2 
         # One Way and Return
         ways = boxes[j].find_elements_by_xpath('.//div[starts-with(@class, "LegDetails_container_")]')
         assert len(ways)==2
@@ -299,8 +305,8 @@ def page_results_Return(browser, trip, DF, banners):
               ways[1].find_element_by_xpath('.//span[contains(@class, "Duration_duration_")]').text, # Flight Length
               direct_or_stops_2.split("\n")[0], # Direct ?
               comp_2, # Airtravel Company
-              int(price_currency[:-2]), # Price
-              price_currency[-2:] # Currency
+              int(price_currency.split(' ')[0]), # Price
+              price_currency.split(' ')[1] # Currency
               ]
         del ways
     del boxes
@@ -313,25 +319,33 @@ def main_Return(Trips):
     appends results to output DataFrame
     """
     global filename
-    DF = pd.DataFrame(columns=['From','To','Date - OneWay','Departure time - OneWay',
-            'Duration - OneWay','Direct flight - OneWay','Company - OneWay',
-            'Date - Return','Departure time - Return','Duration - Return',
-            'Direct flight - Return','Company - Return','Price','Currency'])
+    DF = pd.DataFrame(columns=columns_Return)
     banners = {'cookie':False, 'covid':False, 'price_alert':False}
     b = webdriver.Firefox(executable_path = "./geckodriver",
                           firefox_profile=webdriver.FirefoxProfile() \
                           .set_preference("browser.privatebrowsing.autostart", True))
     for j in range(len(Trips)):
         DF = page_results_Return(b, Trips[j], DF, banners)
-        if (j+1) % 12 == 0:
+        if (j+1) % pages_lookup_before_saving == 0:
             save_DF_to_workbook(filename, DF)
-            DF = pd.DataFrame(columns=['From','To','Date - OneWay','Departure time - OneWay',
-            'Duration - OneWay','Direct flight - OneWay','Company - OneWay',
-            'Date - Return','Departure time - Return','Duration - Return',
-            'Direct flight - Return','Company - Return','Price','Currency'])
+            print("Intermediate save of data to workbook")
+            DF = pd.DataFrame(columns=columns_Return)
     b.close()
     save_DF_to_workbook(filename, DF)
     return(DF)
+
+
+def final_workbook(filename):
+    """
+    Concat all sheets (from each browser parallelisation) in one sheet    
+    """
+    DF = pd.read_excel(filename, sheet_name=None)            
+    sheets = [k for k in DF.keys() if not DF[k].empty]
+    DF1 = DF[sheets.pop(0)]
+    for sheet in sheets:
+        DF1 = pd.concat([DF1, DF[sheet]], axis=0)
+    DF1.to_excel(filename, index=False)
+    return 1
 
 
 # =============================================================================
@@ -349,13 +363,18 @@ Return = int( \
 # Trips
 Trips, exist = create_trips(From, To, Return, Start, Iterations)
 
+
 if not exist:
     print("This trip isn't supported by the app")
 else:
     # Workbook for results
     filename = "Workbooks/Skyscanner_from_" + From + "_To_" + To + "_" + \
                     ("One-Way.xlsx" if Return==0 else "Return.xlsx")
-    init_workbook(filename, Return)
+    # Check if filename exists and has former data saved on 'Sheet1'
+    try:
+    	dummy = pd.read_excel(filename)
+    except:
+    	init_workbook(filename, Return)
     # Divide task into N browsers
     N = len(Trips)
     Inputs = []
@@ -367,5 +386,6 @@ else:
             DF_list = p.map(main_OneWay, Inputs)
         else:
             DF_list = p.map(main_Return, Inputs)
-#    DF_list.to_excel("Finale-"+filename, index=False)
+    #
+    final_workbook(filename)
 ###
