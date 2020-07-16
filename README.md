@@ -32,11 +32,16 @@ python3 skyscanner_scrap.py
 
 They are 5 keys parameters the user can modify :
 
-- Departure and Destination cities are inputs
+- Departure and Destination cities are inputs (no particular syntax, the search engine find as if you key manually)
 
-- A expected number of days of stay in the destination is key in, the app will also look shorter and longer stay opportunities up to 50% of this number (key in 0 day for One Way flights)
+- An expected number of days of stay in the destination is key in, the app will also look shorter and longer stay opportunities up to 50% of this number (write down 0 day for One-Way flights)
 
-- The starting day to look up the first flight (like 30 days from now) and the span of search in days (the 60 nest days for instance)
+- 2 additional variables are in the code and not asked on prompting : the starting day to look up the first flight (like 30 days from now) and the span of search in days (the 60 next days for instance). User is invited to write manually inside the code what he prefers best.
+
+
+## Bot detection
+
+On the first opening of the browser window (where Desparture and Destination cities are wrote down in search engine to get the correct URL syntax), a captcha test may appear, then it is the only time the user is asked to initialise and pass the captcha test within 100 seconds.
 
 
 

@@ -20,9 +20,9 @@ N_browsers = 3
 
 
 # In how many days and for which range to look up flight fares
-# Default : starting next month and for 3 months
 Start, Iterations = 50, 10
 
+# Saving to csv rate
 pages_lookup_before_saving = 12
 
 
@@ -67,6 +67,10 @@ def create_trips(From, To, Return, Start, Iterations):
     browser.find_element_by_id("fsc-destination-search").click()
     browser.find_element_by_xpath('//button[contains(text(), "Trouver un vol")]').click()
     sleep(2.5)
+    # Bot detection : manual intervention for this session
+    if bot_detect(browser):
+    	print("You have 100 seconds to complete captcha test !")
+    	sleep(100) # 100 seconds to pass captcha test
     url = browser.current_url
     url = url.replace(url_body_1, '')
     url = url.replace(url_body_2, '')
@@ -124,20 +128,18 @@ def price_alert_banner(browser):
         return 1
     except:
         return 0
-
-def bot_detection(browser):
-    """ Coming soon   
-
-    try: # êtes-vous un robot?
-        detect = browser.find_element_by_xpath('//button[contains(text(), "Êtes-vous une personne ou un robot ?")]')
-        browser.close()
-        DF.to_excel(filename, index=False)
-        print('Bot detect !')
-    except:
-        pass
-
+    
+def bot_detect(browser):
     """
-    return(browser)
+    <section class="App_App__headline__fdpD_">Êtes-vous une personne ou un robot ?</section>
+    <section class="App_App__instruction__3GRTU">Cochez la case pour continuer :</section>
+    <div class="recaptcha-checkbox-border" role="presentation" style=""></div>
+    """
+    try:
+    	browser.find_element_by_xpath('//section[contains(text(), "Êtes-vous une personne ou un robot ?")]')
+    	return 1
+    except:
+        return 0
 
 def init_workbook(filename, Return):
     if Return==0:
@@ -163,6 +165,18 @@ def page_results_OneWay(browser, trip, DF, banners):
     """
     browser.get(url_body_1 + trip + url_body_2)
     WebDriverWait(browser, 25).until(EC.presence_of_element_located((By.ID, "Layer_1")))
+    
+    # Bot
+    if bot_detect(browser):
+        browser.close()
+        browser = webdriver.Firefox(executable_path = "./geckodriver",
+                          firefox_profile=webdriver.FirefoxProfile() \
+                          .set_preference("browser.privatebrowsing.autostart",
+                                          True))
+        sleep(1)
+        browser.get(url_body_1 + trip + url_body_2)
+        WebDriverWait(browser, 25).until(EC.presence_of_element_located((By.ID,
+                     "Layer_1")))
     
     # Cookie banner
     if not banners['cookie']:
@@ -260,7 +274,7 @@ def page_results_Return(browser, trip, DF, banners):
     
     # Covid banner
     if not banners['covid']:
-        sleep(8) # Security at set up to dodge banners
+        sleep(15) # Security at set up to dodge banners
         if covid_banner(browser):
             banners['covid'] = True
          
