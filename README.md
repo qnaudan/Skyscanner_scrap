@@ -13,7 +13,7 @@ Here's a user-friendly app.
 Create the directory below to store files of saved data
 
 ```bash
-mkdir Workbooks
+mkdir workbooks
 ```
 
 Install or update required libraries
@@ -25,7 +25,7 @@ pip install -r requirements.txt
 Launch the app
 
 ```bash
-python3 skyscanner_scrap.py
+python3 main.py -d Paris -a Bangkok -s 20220801 --days 40
 ```
 
 ## Usage
@@ -42,6 +42,3 @@ They are 5 keys parameters the user can modify :
 ## Bot detection
 
 On the first opening of the browser window (where Desparture and Destination cities are wrote down in search engine to get the correct URL syntax), a captcha test may appear, then it is the only time the user is asked to initialise and pass the captcha test within 100 seconds.
-
-
-

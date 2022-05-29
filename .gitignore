@@ -1,2 +1,6 @@
-Workbooks/
+.venv
 geckodriver.log
+*.xlsx
+*.csv
+
+__pycache__
